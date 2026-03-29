@@ -1,0 +1,200 @@
+# BUILTIN_INSTRUCTIONS - SSD Opcodes by Category
+
+Function:
+  - opcode: 0x3001
+    name: FunctionDeclaration
+    syntax: function
+    description: |
+      Declares a user-defined function. args[0] is a declaration counter (ordinal). 
+      args[1] is the funcId: the opcode value other instructions use to call this function. 
+      args[2+] are the local parameter variable IDs (Int type).
+    params:
+      - name: ordinal
+        description: 1-based declaration counter.
+      - name: funcId
+        description: The callable opcode value.
+      - name: param0
+        description: Local parameter variable ID.
+        optional: true
+      - name: param1
+        description: Local parameter variable ID.
+        optional: true
+      - name: param2
+        description: Local parameter variable ID.
+        optional: true
+
+  - opcode: 0x6012
+    name: IfConditionFunction
+    syntax: requires
+    description: Optional guard on a function; must appear immediately after FunctionDeclaration.
+    params:
+      - name: conditionRef
+        description: Reference to the instruction that evaluates the guard.
+
+Block:
+  - opcode: 0x6001
+    name: OpenBlock
+    syntax: "{"
+    description: Opens a new scope block.
+    params:
+      - name: blockOrdinal
+        description: Declaration counter for this block.
+      - name: closeIdx
+        description: Array index of the paired CloseBlock.
+
+  - opcode: 0x6002
+    name: CloseBlock
+    syntax: "}"
+    description: Closes the current scope block.
+    params:
+      - name: openRef
+        description: Index of the paired OpenBlock.
+
+ControlFlow:
+  - opcode: 0x6008
+    name: If
+    syntax: if
+    description: Conditional branch. Executes the block when condition is true.
+    params:
+      - name: conditionRef
+        description: Reference to the boolean condition.
+
+  - opcode: 0x6009
+    name: While
+    syntax: while
+    description: Loop construct. Repeats while the condition is true.
+    params:
+      - name: conditionRef
+        description: Reference to the loop condition.
+
+  - opcode: 0x600C
+    name: Else
+    syntax: else
+    description: Alternate branch for an If instruction.
+
+  - opcode: 0x6013
+    name: InitializeChildThread
+    syntax: initializeChildThread
+    description: Opens a child-thread scope.
+    params:
+      - name: unk1
+
+  - opcode: 0x6014
+    name: AddChildThread
+    syntax: addChildThread
+    description: Registers a child thread block inside initializeChildThread.
+    params:
+      - name: unk1
+
+Variable:
+  - opcode: 0x7001
+    name: CreateVariable
+    syntax: local
+    description: |
+      Declares a local variable. args[0] is the ID. args[1] is the initial value.
+    params:
+      - name: varId
+        description: Unique numeric ID.
+      - name: init
+        description: Initial value.
+        optional: true
+
+Call:
+  - opcode: 0x3070
+    name: Print
+    syntax: print
+    description: Outputs formatted text.
+    params:
+      - name: format
+        description: Text ID or expression.
+      - name: arg0
+        optional: true
+      - name: arg1
+        optional: true
+      - name: arg2
+        optional: true
+
+  - opcode: 0x3058
+    name: CreateCharacter
+    syntax: createCharacter
+    params:
+      - name: characterId
+      - name: unk1
+        optional: true
+      - name: unk2
+        optional: true
+
+  - opcode: 0x305A
+    name: SetCharacterPosition
+    syntax: setCharacterPosition
+    params:
+      - name: characterId
+      - name: unk1
+      - name: unk2
+      - name: unk3
+      - name: unk4
+
+  - opcode: 0x305C
+    name: RotateCharacter
+    syntax: rotateCharacter
+    params:
+      - name: characterId
+      - name: unk1
+      - name: unk2
+
+  - opcode: 0x4099
+    name: ReplaceSkillInMessage
+    syntax: replaceSkillInMessage
+    params:
+      - name: skillId
+
+  - opcode: 0x3017
+    name: PlayStream
+    syntax: playStream
+    params:
+      - name: unk1
+      - name: streamId
+      - name: unk2
+        optional: true
+      - name: unk3
+        optional: true
+
+  - opcode: 0x3014
+    name: PlaySoundEffect
+    syntax: playSoundEffect
+    params:
+      - name: unk1
+      - name: soundEffectId
+
+  - opcode: 0x301D
+    name: ShowMessageBox
+    syntax: showMessageBox
+    params:
+      - name: format
+      - name: arg0
+        optional: true
+      - name: arg1
+        optional: true
+
+  - opcode: 0x301E
+    name: DeleteMessageBox
+    syntax: deleteMessageBox
+
+  - opcode: 0x3002
+    name: WaitFrame
+    syntax: waitFrame
+    params:
+      - name: frameCount
+
+  - opcode: 0x40D2
+    name: GetGameVersion
+    syntax: getGameVersion
+
+Operator:
+  - opcode: 0x7003
+    name: EqualOperator
+    syntax: "=="
+    description: Equality comparison. Result is a boolean.
+    params:
+      - name: left
+      - name: right

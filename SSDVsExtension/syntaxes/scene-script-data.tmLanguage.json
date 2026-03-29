@@ -1,0 +1,161 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "Scene Script Data",
+  "scopeName": "source.scene-script-data",
+  "patterns": [
+    {
+      "include": "#value"
+    }
+  ],
+  "repository": {
+    "value": {
+      "patterns": [
+        {
+          "include": "#comments"
+        },
+        {
+          "include": "#keywords"
+        },
+        {
+          "include": "#functions"
+        },
+        {
+          "include": "#kind-enum"
+        },
+        {
+          "include": "#property-name"
+        },
+        {
+          "include": "#string"
+        },
+        {
+          "include": "#number"
+        },
+        {
+          "include": "#constants"
+        },
+        {
+          "include": "#object"
+        },
+        {
+          "include": "#array"
+        },
+        {
+          "include": "#punctuation"
+        },
+        {
+          "include": "#variables"
+        }
+      ]
+    },
+    "comments": {
+      "patterns": [
+        {
+          "name": "comment.line.double-slash.scene-script-data",
+          "match": "//.*$"
+        }
+      ]
+    },
+    "keywords": {
+      "patterns": [
+        {
+          "name": "keyword.control.scene-script-data",
+          "match": "\\b(if|else|while|function|local|print|initializeChildThread|addChildThread|requires|return)\\b"
+        }
+      ]
+    },
+    "functions": {
+      "patterns": [
+        {
+          "name": "entity.name.function.scene-script-data",
+          "match": "\\b(func_[0-9a-fA-F]+|[a-zA-Z_][a-zA-Z0-9_]*)\\b(?=\\s*\\()"
+        }
+      ]
+    },
+    "kind-enum": {
+      "patterns": [
+        {
+          "name": "entity.name.type.scene-script-data",
+          "match": "\"(Program|FunctionDeclaration|IfStatement|WhileStatement|VariableDeclaration|ExpressionStatement|PrintStatement|ShowMessageBoxStatement|InitializeChildThreadStatement|AddChildThreadStatement|UnknownStatement|Literal|VariableRef|StringRef|BinaryExpression|CallExpression|BlockStatement)\""
+        },
+        {
+          "name": "keyword.control.scene-script-data",
+          "match": "\"(builtin|custom|unknown)\""
+        }
+      ]
+    },
+    "property-name": {
+      "name": "support.type.property-name.scene-script-data",
+      "match": "\"(kind|version|body|ordinal|funcId|name|params|condition|consequent|alternate|init|varId|format|args|expression|operator|left|right|callKind|opcode|opcodeHex|display|textId|text|isHalfFloat|value|argTypes|openRaw|closeRaw|raw|unk1)\""
+    },
+    "string": {
+      "name": "string.quoted.double.scene-script-data",
+      "begin": "\"",
+      "end": "\"",
+      "patterns": [
+        {
+          "name": "constant.character.escape.scene-script-data",
+          "match": "\\\\(?:[\"\\\\/bfnrt]|u[0-9a-fA-F]{4})"
+        }
+      ]
+    },
+    "number": {
+      "name": "constant.numeric.scene-script-data",
+      "match": "-?(?:0|[1-9]\\d*)(?:\\.\\d+)?(?:[eE][+-]?\\d+)?"
+    },
+    "constants": {
+      "name": "constant.language.scene-script-data",
+      "match": "\\b(true|false|null)\\b"
+    },
+    "object": {
+      "begin": "\\{",
+      "end": "\\}",
+      "beginCaptures": {
+        "0": {
+          "name": "punctuation.definition.section.begin.scene-script-data"
+        }
+      },
+      "endCaptures": {
+        "0": {
+          "name": "punctuation.definition.section.end.scene-script-data"
+        }
+      },
+      "patterns": [
+        {
+          "include": "#value"
+        }
+      ]
+    },
+    "array": {
+      "begin": "\\[",
+      "end": "\\]",
+      "beginCaptures": {
+        "0": {
+          "name": "punctuation.definition.section.array.begin.scene-script-data"
+        }
+      },
+      "endCaptures": {
+        "0": {
+          "name": "punctuation.definition.section.array.end.scene-script-data"
+        }
+      },
+      "patterns": [
+        {
+          "include": "#value"
+        }
+      ]
+    },
+    "punctuation": {
+      "name": "punctuation.separator.scene-script-data",
+      "match": "[:,]"
+    },
+    "variables": {
+      "patterns": [
+        {
+          "name": "variable.other.scene-script-data",
+          "match": "\\bvar_0x[0-9a-fA-F]+\\b"
+        }
+      ]
+    }
+  }
+}

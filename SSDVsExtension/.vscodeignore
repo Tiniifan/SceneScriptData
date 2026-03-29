@@ -1,0 +1,9 @@
+.vscode/**
+.gitignore
+tsconfig.json
+src/**
+**/*.map
+**/*.ts
+node_modules/@types/**
+../SSDKit/*.tgz
+*.tgz

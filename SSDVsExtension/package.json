@@ -1,0 +1,85 @@
+{
+  "name": "scene-script-data-vscode",
+  "displayName": "Scene Script Data",
+  "description": "Scene Script Data language support, SSD/SST compilation, and SST text file association.",
+  "version": "0.1.0",
+  "publisher": "tinifan",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "activationEvents": [
+    "onLanguage:scene-script-data",
+    "onFileSystem:file"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "languages": [
+      {
+        "id": "scene-script-data",
+        "aliases": [
+          "Scene Script Data",
+          "SSD AST"
+        ],
+        "extensions": [
+          ".ssd.json",
+          ".ssd",
+          ".pac_"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "scene-script-data",
+        "scopeName": "source.scene-script-data",
+        "path": "./syntaxes/scene-script-data.tmLanguage.json"
+      }
+    ],
+    "commands": [
+      {
+        "command": "sceneScriptData.compile",
+        "title": "Compile SSD file (AST JSON → _compiled.ssd + .sst)",
+        "category": "Scene Script Data"
+      },
+      {
+        "command": "sceneScriptData.decompile",
+        "title": "Decompile binary SSD file (binary → text)",
+        "category": "Scene Script Data"
+      },
+      {
+        "command": "sceneScriptData.chooseSstCompanion",
+        "title": "Choose a complementary SST file…",
+        "category": "Scene Script Data"
+      }
+    ],
+    "configuration": {
+      "title": "Scene Script Data",
+      "properties": {
+        "sceneScriptData.ssdKitPath": {
+          "type": "string",
+          "default": "",
+          "description": "Absolute path to the SSDKit folder (contains dist/cli.js). Empty = automatic resolution next to the extension."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run build-all",
+    "build-toolchain": "cd ../SSDKit && npm run build && npm pack",
+    "update-toolchain": "npm install ../SSDKit/ssd-toolchain-0.1.0.tgz",
+    "compile": "tsc -p ./",
+    "build-all": "npm run build-toolchain && npm run update-toolchain && npm run compile",
+    "watch": "tsc -watch -p ./"
+  },
+  "dependencies": {
+    "ssd-toolchain": "file:../SSDKit/ssd-toolchain-0.1.0.tgz"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "@types/vscode": "^1.85.0",
+    "typescript": "^5.3.0"
+  }
+}
