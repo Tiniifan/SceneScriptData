@@ -115,6 +115,46 @@ class Emitter {
     return null;
   }  
 
+  private reserveInstruction(): number {
+    const index = this.instructions.length;
+    const id = this.nextId++;
+    this.instructions.push({
+      index,
+      id,
+      type: 0,
+      unk: 0,
+      args: [],
+      argTypes: []
+    } as any);
+    return index;
+  }
+
+  private finalizeInstruction(
+    index: number,
+    type: number,
+    argDescriptors: { type: ArgType; value: number }[],
+    unk = 0
+  ): number {
+    const inst = this.instructions[index];
+    const id = inst.id;
+    
+    // We use your existing function to create the actual instruction
+    const finalInst = makeRawInstruction(index, id, type, unk, argDescriptors);
+    this.instructions[index] = finalInst;
+
+    // SST chain management
+    for (const arg of argDescriptors) {
+      if (arg.type === ArgType.String) {
+        const sstEntry = this.sstEntries[arg.value];
+        if (sstEntry && sstEntry.instructionId === -1) {
+          sstEntry.instructionId = id;
+        }
+      }
+    }
+
+    return id;
+  }  
+
   public run(program: ProgramNode): CompileASTResult {
     // First, all the functions declared in the global scope are registered.
     this.registerFunctions(program.body);
@@ -239,8 +279,16 @@ class Emitter {
   }
 
   private emitIfStatement(node: IfStatementNode): void {
+    // Reserve the IF instruction
+    const instIndex = this.reserveInstruction();
+    
+    // Issue condition
     const condDesc = this.slotToDescriptor(this.emitArgSlot(node.condition));
-    this.pushInstruction(OP_IF, [condDesc], 0);
+    
+    // Finalize the IF
+    this.finalizeInstruction(instIndex, OP_IF, [condDesc], 0);
+    
+    // Continue with the block
     this.emitBlock(node.consequent);
 
     if (node.alternate) {
@@ -260,14 +308,17 @@ class Emitter {
   }
 
   private emitVariableDeclaration(node: VariableDeclarationNode): void {
+    // Reserved
+    const instIndex = this.reserveInstruction();
+    
+    // Issue the initialization (the children)
     const initSlot = this.emitArgSlot(node.init);
     const initDesc = this.slotToDescriptor(initSlot);
-    
-    // Extracting the ID if the name is var_0x...
     const finalVarId = this.parseIdFromName(node.name, 'var_') ?? node.varId;
 
-    this.pushInstruction(OP_CREATE_VARIABLE, [
-      { type: ArgType.Int, value: finalVarId >>> 0 },
+    // Finalize the CreateVariable (0x7001)
+    this.finalizeInstruction(instIndex, OP_CREATE_VARIABLE, [
+      { type: ArgType.VarDst, value: finalVarId >>> 0 },
       initDesc,
     ], 0);
   }
@@ -372,7 +423,7 @@ class Emitter {
           value: slot.half ? Math.round(slot.value * 4096) >>> 0 : slot.value >>> 0,
         };
       case 'variable':
-        return { type: ArgType.Variable, value: slot.varId >>> 0 };
+        return { type: ArgType.VarSrc, value: slot.varId >>> 0 };
       case 'instruction':
         return { type: ArgType.Instruction, value: slot.id >>> 0 };
       case 'string':
@@ -400,36 +451,44 @@ class Emitter {
         return { kind: 'variable', varId: vId };
       case 'StringRef':
         return { kind: 'string', text: expr.display ?? expr.text ?? '' };
+        
       case 'BinaryExpression': {
+        // Reserve space for the operator (==)
+        const instIndex = this.reserveInstruction();
+        
+        // Issue the members (which may be other instructions)
         const left = this.slotToDescriptor(this.emitArgSlot(expr.left));
         const right = this.slotToDescriptor(this.emitArgSlot(expr.right));
-        const id = this.pushInstruction(OP_EQUAL, [left, right], 0);
+        
+        // Finalize the parent instruction
+        const id = this.finalizeInstruction(instIndex, OP_EQUAL, [left, right], 0);
         return { kind: 'instruction', id };
       }
+      
       case 'CallExpression': {
+        // Reserve the space for the function call
+        const instIndex = this.reserveInstruction();
+
+        // Dealing with arguments
         const args: { type: ArgType; value: number }[] = [];
         for (const a of expr.args) {
           args.push(this.slotToDescriptor(this.emitArgSlot(a)));
         }
 
+        // Determine the opcode
         let opcode = 0;
         const hexId = this.parseIdFromName(expr.name, 'func_');
-
         if (hexId !== null) {
           opcode = hexId;
         } else if (this.functionMap.has(expr.name)) {
           opcode = this.functionMap.get(expr.name)!;
         } else {
-          // Search the register by name
           const def = this.registry.getAll().find(d => d.syntax === expr.name || d.name === expr.name);
-          if (def) {
-            opcode = def.opcode;
-          } else {
-            opcode = expr.opcode; // Repli
-          }
+          opcode = def ? def.opcode : expr.opcode;
         }
 
-        const id = this.pushInstruction(opcode, args, 0);
+        // Finalize
+        const id = this.finalizeInstruction(instIndex, opcode, args, 0);
         return { kind: 'instruction', id };
       }
       default:
@@ -480,10 +539,10 @@ function mapArgTypeName(name: string): ArgType {
       return ArgType.String;
     case 'Instruction':
       return ArgType.Instruction;
-    case 'Variable':
-      return ArgType.Variable;
-    case 'Variable2':
-      return ArgType.Variable2;
+    case 'VarSrc':
+      return ArgType.VarSrc;
+    case 'VarDst':
+      return ArgType.VarDst;
     default:
       return ArgType.Int;
   }

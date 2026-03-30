@@ -487,7 +487,7 @@ export class ASTBuilder {
     // ---------------------------------------------------------------------------
 
     /**
-     * args[0] — variable ID (always Int)
+     * args[0] — variable ID (VarDst)
      * args[1] — initial value:
      *             ArgType.Int        -> literal
      *             ArgType.Instruction -> recursive expression  (var = f(g(h(...))))
@@ -727,8 +727,8 @@ export class ASTBuilder {
                 } as CallExpressionNode;
             }
 
-            case ArgType.Variable:
-            case ArgType.Variable2: {
+            case ArgType.VarSrc:
+            case ArgType.VarDst: {
                 const name = this.variables.get(value)
                     ?? `var_0x${value.toString(16).toUpperCase()}`;
                 return { kind: 'VariableRef', varId: value, name, raw: [inst.index] };

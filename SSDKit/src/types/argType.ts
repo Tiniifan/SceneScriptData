@@ -11,9 +11,9 @@ export enum ArgType {
   /** Reference to another instruction by ID */
   Instruction = 0x4,
   /** Reference to a declared variable */
-  Variable  = 0x5,
+  VarSrc  = 0x5,
   /** Reference to a declared variable (alternate form) */
-  Variable2 = 0x6,
+  VarDst = 0x6,
   Unknown = 99,
 }
 
