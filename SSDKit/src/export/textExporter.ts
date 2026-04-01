@@ -190,8 +190,10 @@ class TextLayoutContext {
             case 'AddChildThreadStatement':
                 return this.renderThreadScope('addChildThread', stmt.unk1, stmt.body, depth);
 
-            case 'UnknownStatement':
-                return [this.indent(depth) + `func_${stmt.opcodeHex}(${stmt.args.join(', ')});`];
+            case 'UnknownStatement': {
+                const args = stmt.resolvedArgs.map(exprToString).join(', ');
+                return [this.indent(depth) + `func_${stmt.opcodeHex}(${args});`];
+            }
         }
     }
 

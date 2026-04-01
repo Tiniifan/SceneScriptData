@@ -228,8 +228,7 @@ export interface UnknownStatementNode {
   kind:      'UnknownStatement';
   opcode:    number;
   opcodeHex: string;
-  args:      number[];
-  argTypes:  string[];
+  resolvedArgs: ExpressionNode[];
   raw:       number[];
 }
 

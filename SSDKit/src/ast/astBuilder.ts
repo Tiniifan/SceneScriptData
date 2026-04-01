@@ -593,8 +593,7 @@ export class ASTBuilder {
             kind: 'UnknownStatement',
             opcode: inst.type,
             opcodeHex: `0x${inst.type.toString(16).toUpperCase().padStart(4, '0')}`,
-            args: [...inst.args],
-            argTypes: inst.argTypes.map((a) => a.name),
+            resolvedArgs: inst.args.map((_, a) => this.resolveArg(inst, a)),
             raw: [inst.index],
         };
     }

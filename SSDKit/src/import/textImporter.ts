@@ -424,12 +424,16 @@ export function parseProgramFromText(text: string, options: TextImportOptions = 
                 );
             }
 
+            const rawArgs = unknownMatch[2].trim();
+            const resolvedArgs = rawArgs.length > 0
+                ? splitTopLevelCommas(rawArgs).map(arg => parseExpression(arg))
+                : [];
+
             block.body.push({
                 kind: 'UnknownStatement',
                 opcode: parseInt(unknownMatch[1], 16),
                 opcodeHex: unknownMatch[1],
-                args: unknownMatch[2].split(',').map(arg => parseInt(arg.trim(), 10) || 0),
-                argTypes: [],
+                resolvedArgs,
                 raw: []
             } as UnknownStatementNode);
             continue;

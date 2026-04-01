@@ -62,9 +62,9 @@ export interface CompileASTResult {
 export function compileAST(program: ProgramNode, options: CompileASTOptions = {}): CompileASTResult {
   // If no register is provided, the default register is used
   const registry = options.registry ?? createDefaultRegistry();
-  
+
   // We pass the register to the Emitter constructor
-  const emitter = new Emitter(options, registry); 
+  const emitter = new Emitter(options, registry);
   return emitter.run(program);
 }
 
@@ -90,7 +90,7 @@ class Emitter {
   private readonly instructions: RawInstruction[] = [];
   private readonly sstEntries: SSTWriteEntry[] = [];
   private readonly registry: InstructionRegistry;
-  
+
   private nextId = 1;
   private blockOrdinal = 0;
   private readonly opts: CompileASTOptions;
@@ -113,7 +113,7 @@ class Emitter {
       return parseInt(match[1], 16);
     }
     return null;
-  }  
+  }
 
   private reserveInstruction(): number {
     const index = this.instructions.length;
@@ -137,7 +137,7 @@ class Emitter {
   ): number {
     const inst = this.instructions[index];
     const id = inst.id;
-    
+
     // We use your existing function to create the actual instruction
     const finalInst = makeRawInstruction(index, id, type, unk, argDescriptors);
     this.instructions[index] = finalInst;
@@ -153,12 +153,12 @@ class Emitter {
     }
 
     return id;
-  }  
+  }
 
   public run(program: ProgramNode): CompileASTResult {
     // First, all the functions declared in the global scope are registered.
     this.registerFunctions(program.body);
-    
+
     // Compile
     this.emitProgram(program);
 
@@ -178,7 +178,7 @@ class Emitter {
         }
       }
     }
-  }  
+  }
 
   private pushInstruction(
     type: number,
@@ -281,13 +281,13 @@ class Emitter {
   private emitIfStatement(node: IfStatementNode): void {
     // Reserve the IF instruction
     const instIndex = this.reserveInstruction();
-    
+
     // Issue condition
     const condDesc = this.slotToDescriptor(this.emitArgSlot(node.condition));
-    
+
     // Finalize the IF
     this.finalizeInstruction(instIndex, OP_IF, [condDesc], 0);
-    
+
     // Continue with the block
     this.emitBlock(node.consequent);
 
@@ -310,7 +310,7 @@ class Emitter {
   private emitVariableDeclaration(node: VariableDeclarationNode): void {
     // Reserved
     const instIndex = this.reserveInstruction();
-    
+
     // Issue the initialization (the children)
     const initSlot = this.emitArgSlot(node.init);
     const initDesc = this.slotToDescriptor(initSlot);
@@ -366,11 +366,9 @@ class Emitter {
   }
 
   private emitUnknownStatement(stmt: UnknownStatementNode): void {
-    const types = stmt.argTypes.map((name) => mapArgTypeName(name));
-    const argDescriptors = stmt.args.map((value, i) => ({
-      type: types[i] ?? ArgType.Int,
-      value: value >>> 0,
-    }));
+    const argDescriptors = stmt.resolvedArgs.map((expr) =>
+      this.slotToDescriptor(this.emitArgSlot(expr))
+    );
     this.pushInstruction(stmt.opcode, argDescriptors, 0);
   }
 
@@ -451,20 +449,20 @@ class Emitter {
         return { kind: 'variable', varId: vId };
       case 'StringRef':
         return { kind: 'string', text: expr.display ?? expr.text ?? '' };
-        
+
       case 'BinaryExpression': {
         // Reserve space for the operator (==)
         const instIndex = this.reserveInstruction();
-        
+
         // Issue the members (which may be other instructions)
         const left = this.slotToDescriptor(this.emitArgSlot(expr.left));
         const right = this.slotToDescriptor(this.emitArgSlot(expr.right));
-        
+
         // Finalize the parent instruction
         const id = this.finalizeInstruction(instIndex, OP_EQUAL, [left, right], 0);
         return { kind: 'instruction', id };
       }
-      
+
       case 'CallExpression': {
         // Reserve the space for the function call
         const instIndex = this.reserveInstruction();
