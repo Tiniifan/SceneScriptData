@@ -198,3 +198,10 @@ Operator:
     params:
       - name: left
       - name: right
+  - opcode: 0x7009
+    name: ADD
+    syntax: "+"
+    description: Adds the left and right operands.
+    params:
+      - name: left
+      - name: right        
