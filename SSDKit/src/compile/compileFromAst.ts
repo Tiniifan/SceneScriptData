@@ -27,14 +27,23 @@ export function writeCompiledFiles(program: ProgramNode, opts: WriteCompiledFile
   fs.mkdirSync(dir, { recursive: true });
 
   const ssdPath = path.join(dir, `${stem}.compiled.ssd`);
-  fs.writeFileSync(ssdPath, writeSSDBuffer(ssdFile));
 
   if (opts.skipSst) {
+    fs.writeFileSync(ssdPath, writeSSDBuffer(ssdFile));
     return { ssdPath };
   }
 
+  // Generate the SST buffer to determine its actual size.
+  const sstBuffer = writeSSTBuffer(sstEntries);
+
+  // Patch the header with the correct textSize before writing to the SSD
+  ssdFile.header.textSize = sstBuffer.byteLength;
+  ssdFile.header.size = 32 + ssdFile.header.instSize + sstBuffer.byteLength;
+
+  fs.writeFileSync(ssdPath, writeSSDBuffer(ssdFile));
+
   const sstPath = path.join(dir, `${stem}.compiled.sst`);
-  fs.writeFileSync(sstPath, writeSSTBuffer(sstEntries));
-  
+  fs.writeFileSync(sstPath, sstBuffer);
+
   return { ssdPath, sstPath };
 }

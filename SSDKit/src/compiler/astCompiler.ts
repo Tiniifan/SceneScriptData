@@ -254,6 +254,10 @@ class Emitter {
   }
 
   private emitFunctionDeclaration(fn: FunctionDeclarationNode): void {
+    // Save and reset block ordinal for this function scope
+    const savedBlockOrdinal = this.blockOrdinal;
+    this.blockOrdinal = 0;
+
     // Function ID resolution
     let finalFuncId = this.functionMap.get(fn.name) || 0;
 
@@ -271,11 +275,22 @@ class Emitter {
     this.pushInstruction(OP_FUNCTION_DECL, params, 0);
 
     if (fn.condition) {
+      // First reserve the slot for IfConditionFunction
+      const condInstIndex = this.reserveInstruction();
+
+      // Then do the conditional expression (EqualOperator, etc.)
       const condId = this.emitExpressionRoot(fn.condition);
-      this.pushInstruction(OP_IF_CONDITION_FUNC, [{ type: ArgType.Instruction, value: condId }], 0);
+
+      // Finalize IfConditionFunction with the reference to the expression
+      this.finalizeInstruction(condInstIndex, OP_IF_CONDITION_FUNC, [
+        { type: ArgType.Instruction, value: condId }
+      ], 0);
     }
 
     this.emitBlock(fn.body);
+
+    // Restore outer ordinal (for nested functions if they ever exist)
+    this.blockOrdinal = savedBlockOrdinal;
   }
 
   private emitIfStatement(node: IfStatementNode): void {
@@ -292,7 +307,7 @@ class Emitter {
     this.emitBlock(node.consequent);
 
     if (node.alternate) {
-      this.pushInstruction(OP_ELSE, [], 0);
+      this.pushInstruction(OP_ELSE, [{ type: ArgType.Int, value: 1 }], 0);
       if (node.alternate.kind === 'IfStatement') {
         this.emitIfStatement(node.alternate);
       } else {
@@ -392,9 +407,14 @@ class Emitter {
       this.emitStatement(st);
     }
 
-    const closeId = this.pushInstruction(OP_CLOSE_BLOCK, [{ type: ArgType.Int, value: openInstId >>> 0 }], 0);
+    const closeId = this.pushInstruction(OP_CLOSE_BLOCK, [
+      { type: ArgType.Int, value: ord >>> 0 },
+      { type: ArgType.Int, value: openInstId >>> 0 },
+    ], 0);
 
     this.patchInstructionArgs(openIndex, [ord >>> 0, closeId >>> 0]);
+
+    this.blockOrdinal--;
   }
 
   /**
@@ -503,7 +523,7 @@ class Emitter {
     const header = buildSSDHeader(this.instructions.length, instBodyByteLength, version, {
       magic: magic ?? 'SSD\0',
       textCount: this.opts.skipSst ? 0 : this.sstEntries.length,
-      textSize: 0,
+      textSize: 0, // will be patched in writeCompiledFiles once the SST buffer is known
     });
 
     const ssdFile: SSDFile = { header, instructions: this.instructions };
