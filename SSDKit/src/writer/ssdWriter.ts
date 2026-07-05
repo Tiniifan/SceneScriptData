@@ -79,7 +79,7 @@ export function writeSSDBuffer(file: SSDFile): Buffer {
 
   for (const inst of file.instructions) {
     w.writeValue(inst.id & 0xffff, 'int16');
-    w.writeValue(inst.size & 0xffff, 'int16');
+    w.writeValue(inst.size + 4 & 0xffff, 'int16');
     w.writeValue(inst.type & 0xffff, 'uint16');
     w.writeValue(inst.argsCount & 0xff, 'uint8');
     w.writeValue(inst.unk & 0xff, 'uint8');
