@@ -62,10 +62,10 @@ export class SSDReader {
 
       const argTypes = parseArgTypes(argTypesRaw, argsCount);
 
-      // Argument values: one uint32 per argument
+      // Argument values: one int32 per argument
       const args: number[] = [];
       for (let a = 0; a < argsCount; a++) {
-        args.push(this.reader.readValue<number>('uint32'));
+        args.push(this.reader.readValue<number>('int32'));
       }
 
       instructions.push({ index, id, size, type, argsCount, unk, argTypesRaw, argTypes, args });
