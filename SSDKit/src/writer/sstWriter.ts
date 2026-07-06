@@ -7,7 +7,7 @@ import { sseEncodeString } from '../reader/sseEncoding';
 export interface SSTWriteEntry {
   /** Same key as the SSD instruction id that owns the ArgType.String argument. */
   instructionId: number;
-  unk1: number;
+  textNumber: number;
   unk2: number;
   /** Plain text; encoded with SSE before writing. */
   text: string;
@@ -26,7 +26,7 @@ export function writeSSTBuffer(entries: SSTWriteEntry[]): Buffer {
     const length = 8 + textByteCount;
 
     body.writeValue(e.instructionId & 0xffff, 'int16');
-    body.writeValue(e.unk1 & 0xffff, 'int16');
+    body.writeValue(e.textNumber & 0xffff, 'int16');
     body.writeValue(length & 0xffff, 'int16');
     body.writeValue(e.unk2 & 0xffff, 'int16');
     body.writeBytes(rawText);

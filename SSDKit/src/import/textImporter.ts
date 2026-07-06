@@ -510,13 +510,25 @@ function parseParameters(paramStr: string): FunctionParamNode[] {
 function extractParenthesized(s: string, openParen: number): string | null {
     if (s[openParen] !== '(') return null;
     let depth = 0;
+    let inString = false;
+
     for (let i = openParen; i < s.length; i++) {
-        if (s[i] === '(') depth++;
-        else if (s[i] === ')') {
-            depth--;
-            if (depth === 0) return s.slice(openParen + 1, i);
+        const char = s[i];
+
+        if (char === '"' && s[i - 1] !== '\\') {
+            inString = !inString;
+            continue;
+        }
+
+        if (!inString) {
+            if (char === '(') depth++;
+            else if (char === ')') {
+                depth--;
+                if (depth === 0) return s.slice(openParen + 1, i);
+            }
         }
     }
+    
     return null; // Unbalanced
 }
 
@@ -554,17 +566,28 @@ function splitTopLevelCommas(text: string): string[] {
     const result: string[] = [];
     let current = '';
     let depth = 0;
+    let inString = false;
 
     for (let i = 0; i < text.length; i++) {
         const char = text[i];
-        if (char === '(') depth++;
-        if (char === ')') depth--;
-        if (char === ',' && depth === 0) {
-            result.push(current.trim());
-            current = '';
-        } else {
+
+        if (char === '"' && text[i - 1] !== '\\') {
+            inString = !inString;
             current += char;
+            continue;
         }
+
+        if (!inString) {
+            if (char === '(') depth++;
+            if (char === ')') depth--;
+            if (char === ',' && depth === 0) {
+                result.push(current.trim());
+                current = '';
+                continue;
+            }
+        }
+
+        current += char;
     }
 
     if (current.trim()) result.push(current.trim());
