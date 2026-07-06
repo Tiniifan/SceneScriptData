@@ -355,17 +355,20 @@ class Emitter {
     format: ExpressionNode,
     extraArgs: ExpressionNode[]
   ): void {
+    const instIndex = this.reserveInstruction();
+
     const slots: { type: ArgType; value: number }[] = [];
 
-    // Uses the standard handling for the format and arguments
+    // Format argument
     slots.push(this.slotToDescriptor(this.emitArgSlot(format)));
 
+    // Remaining arguments (may themselves emit instructions, e.g. CallExpression)
     for (const a of extraArgs) {
       slots.push(this.slotToDescriptor(this.emitArgSlot(a)));
     }
 
-    this.pushInstruction(opcode, slots, 0);
-    // Note: The SST entry is already handled by slotToDescriptor and pushInstruction
+    // Now that every argument has been resolved, finalize this instruction
+    this.finalizeInstruction(instIndex, opcode, slots, 0);
   }
 
   private emitInitChildThread(stmt: InitializeChildThreadStatementNode): void {
