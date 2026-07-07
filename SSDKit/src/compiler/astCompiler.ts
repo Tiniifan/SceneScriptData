@@ -143,14 +143,14 @@ class Emitter {
     this.instructions[index] = finalInst;
 
     // SST chain management
-    let stringOrdinal = 0;
+    let argIndex = 0;
     for (const arg of argDescriptors) {
+      argIndex++;
       if (arg.type === ArgType.String) {
-        stringOrdinal++;
         const sstEntry = this.sstEntries[arg.value];
         if (sstEntry && sstEntry.instructionId === -1) {
           sstEntry.instructionId = id;
-          sstEntry.textNumber = stringOrdinal;
+          sstEntry.argIndex = argIndex;
         }
       }
     }
@@ -193,19 +193,18 @@ class Emitter {
     const inst = makeRawInstruction(index, id, type, unk, argDescriptors);
     this.instructions.push(inst);
 
-    let stringOrdinal = 0;
+    let argIndex = 0;
 
     // Bind String-type arguments to this statement in the SST
     for (const arg of argDescriptors) {
+      argIndex++;
       if (arg.type === ArgType.String) {
-        stringOrdinal++;
-
         // The value of the argument is the index in sstEntries
         const sstEntry = this.sstEntries[arg.value];
 
         if (sstEntry && sstEntry.instructionId === -1) {
           sstEntry.instructionId = id;
-          sstEntry.textNumber = stringOrdinal;
+          sstEntry.argIndex = argIndex;
         }
       }
     }
@@ -461,7 +460,7 @@ class Emitter {
         if (!this.opts.skipSst) {
           this.sstEntries.push({
             instructionId: -1, // Will be patched in pushInstruction
-            textNumber: -1, // Will be patched in pushInstruction
+            argIndex: -1, // Will be patched in pushInstruction
             unk2: 0,
             text: slot.text,
           });
