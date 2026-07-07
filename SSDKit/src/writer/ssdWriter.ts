@@ -52,7 +52,7 @@ export function makeRawInstruction(
     size: payloadSize,
     type,
     argsCount,
-    unk,
+    unk: 1,
     argTypesRaw,
     argTypes,
     args,
