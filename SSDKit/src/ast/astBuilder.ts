@@ -626,15 +626,15 @@ export class ASTBuilder {
         }
 
         // --- Add ---
-        if (opcode === 0x7009) {
-            return {
-                kind: 'BinaryExpression',
-                operator: '+',
-                left: this.resolveArg(inst, 0),
-                right: this.resolveArg(inst, 1),
-                raw: [inst.index],
-            } as BinaryExpressionNode;
-        }        
+        // if (opcode === 0x7009) {
+        //     return {
+        //         kind: 'BinaryExpression',
+        //         operator: '+',
+        //         left: this.resolveArg(inst, 0),
+        //         right: this.resolveArg(inst, 1),
+        //         raw: [inst.index],
+        //     } as BinaryExpressionNode;
+        // }        
 
         // --- IfConditionFunction — expose its condition ---
         if (opcode === 0x6012) {

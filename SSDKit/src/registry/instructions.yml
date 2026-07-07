@@ -124,6 +124,13 @@ Call:
       - name: unk2
         optional: true
 
+  - opcode: 0x3059
+    name: ACTOR_UNLOAD
+    syntax: ACTOR_UNLOAD
+    params:
+      - name: characterId
+      - name: unk1     
+
   - opcode: 0x305A
     name: SetCharacterPosition
     syntax: setCharacterPosition
@@ -190,6 +197,12 @@ Call:
     name: GetGameVersion
     syntax: getGameVersion
 
+  - opcode: 0x4045
+    name: GET_PARTY
+    syntax: GET_PARTY
+    params:
+      - name: characterIndex 
+
 Operator:
   - opcode: 0x7003
     name: EqualOperator
@@ -198,10 +211,10 @@ Operator:
     params:
       - name: left
       - name: right
-  - opcode: 0x7009
-    name: ADD
-    syntax: "+"
-    description: Adds the left and right operands.
-    params:
-      - name: left
-      - name: right        
+  # - opcode: 0x7009
+    # name: ADD
+    # syntax: "+"
+    # description: Adds the left and right operands.
+    # params:
+      # - name: left
+      # - name: right        
