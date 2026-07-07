@@ -107,25 +107,89 @@ function astStemFromEditorPath(filePath: string): string {
   return base;
 }
 
+/**
+ * Given the path of an .ssd/.pac_ file being decompiled, resolves the path
+ * to its companion compiled .sst text file (same stem, `.compiled.sst`),
+ * if one exists next to it.
+ *
+ * @param filePath - Absolute path to the binary `.ssd` or `.pac_` file.
+ * @returns Absolute path to the `.sst` file, or `null` if none was found.
+ */
+function resolveCompiledSst(filePath: string): string | null {
+  const stem = astStemFromEditorPath(filePath);
+  const dir = path.dirname(filePath);
+
+  // Try the standard compiled naming first, then a couple of fallbacks.
+  const candidates = [
+    path.join(dir, `${stem}.compiled.sst`),
+    path.join(dir, `${stem}.sst`),
+  ];
+
+  for (const candidate of candidates) {
+    if (fs.existsSync(candidate)) return candidate;
+  }
+  return null;
+}
+
+/**
+ * Prompts the user to locate the .sst text file associated with a compiled
+ * SSD file when none could be resolved automatically. The user can either
+ * pick a file via the native file picker, or cancel to proceed without one.
+ *
+ * @param filePath - Absolute path to the binary `.ssd`/`.pac_` file being decompiled.
+ * @returns The absolute path to the chosen `.sst` file, or `null` if the user cancelled.
+ */
+async function promptForSstFile(filePath: string): Promise<string | null> {
+  const choice = await vscode.window.showInformationMessage(
+    `No .sst file found for "${path.basename(filePath)}". Would you like to select one?`,
+    { modal: true },
+    'Choose file…'
+  );
+
+  // User dismissed the dialog or clicked nothing -> ignore
+  if (choice !== 'Choose file…') return null;
+
+  const uris = await vscode.window.showOpenDialog({
+    title: 'Select the associated .sst file',
+    defaultUri: vscode.Uri.file(path.dirname(filePath)),
+    canSelectMany: false,
+    filters: {
+      'All supported files': ['sst', 'pac_'],
+      'All files': ['*']
+    }
+  });
+
+  if (!uris || uris.length === 0) return null; // user cancelled the picker itself
+
+  return uris[0].fsPath;
+}
+
 // #endregion
 
 // #region Decompilation
 
 /**
- * Spawns the SSDKit CLI to decompile a binary SSD file and returns 
- * the resulting plain-text script.
+ * Spawns the SSDKit CLI to decompile a binary SSD file and returns
+ * the resulting plain-text script. Optionally attaches a companion
+ * .sst file so text entries are resolved.
  *
  * @param filePath - Absolute path to the binary `.ssd` or `.pac_` file.
+ * @param sstPath - Optional absolute path to a companion `.sst` file.
  * @returns A promise resolving to the script string.
  */
-function runDecompile(filePath: string): Promise<string> {
+function runDecompile(filePath: string, sstPath?: string | null): Promise<string> {
   return new Promise((resolve, reject) => {
     const cli = resolveSsdKitCli();
     if (!cli) {
       return reject("SSDKit (cli.js) not found. Check extension settings.");
     }
 
-    const proc = spawn('node', [cli, 'text', filePath], {
+    const args = [cli, 'text', filePath];
+    if (sstPath) {
+      args.push('-s', sstPath);
+    }
+
+    const proc = spawn('node', args, {
       shell: process.platform === 'win32',
     });
 
@@ -219,7 +283,7 @@ export function activate(context: vscode.ExtensionContext): void {
    * Main redirection logic: 
    * Detects binary files and generates an editable {stem}.decomp.ssd file.
    */
-  const checkAndRedirect = async (editor: vscode.TextEditor | undefined): Promise<void> => {
+  const checkAndRedirect = async (editor: vscode.TextEditor | undefined): Promise<void> => {    
     if (!editor) return;
 
     const doc = editor.document;
@@ -234,12 +298,20 @@ export function activate(context: vscode.ExtensionContext): void {
 
     if (!isPhysicalSsdFile || !isBinarySsd(fp)) return;
 
-    // FIX: Generate "filename.decomp.ssd" by stripping the original extension
+    // Generate "filename.decomp.ssd" by stripping the original extension
     const stem = astStemFromEditorPath(fp);
     const decompPath = path.join(path.dirname(fp), stem + DECOMP_EXT);
 
     try {
-      const content = await runDecompile(fp);
+      // Try to auto-resolve the companion .sst file first
+      let sstPath = resolveCompiledSst(fp);
+
+      // If not found, ask the user (they can cancel to ignore)
+      if (!sstPath) {
+        sstPath = await promptForSstFile(fp);
+      }
+
+      const content = await runDecompile(fp, sstPath);
 
       // Write to disk as a physical file
       fs.writeFileSync(decompPath, content, 'utf8');
@@ -332,7 +404,7 @@ const completionProvider = vscode.languages.registerCompletionItemProvider('scen
     for (const ins of registry.getAll()) {
       // If no syntax defined, we ignore or use the name
       const label = ins.syntax || ins.name;
-      
+
       const item = new vscode.CompletionItem(label, vscode.CompletionItemKind.Function);
       item.detail = `SSD 0x${ins.opcode.toString(16).toUpperCase()}`;
       item.documentation = new vscode.MarkdownString(ins.description);
