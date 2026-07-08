@@ -76,7 +76,7 @@
       "patterns": [
         {
           "name": "entity.name.type.scene-script-data",
-          "match": "\"(Program|FunctionDeclaration|IfStatement|WhileStatement|VariableDeclaration|ExpressionStatement|PrintStatement|ShowMessageBoxStatement|InitializeChildThreadStatement|AddChildThreadStatement|UnknownStatement|Literal|VariableRef|StringRef|BinaryExpression|CallExpression|BlockStatement)\""
+          "match": "\"(Program|FunctionDeclaration|IfStatement|WhileStatement|VariableDeclaration|ExpressionStatement|PrintStatement|InitializeChildThreadStatement|AddChildThreadStatement|UnknownStatement|Literal|VariableRef|StringRef|BinaryExpression|CallExpression|BlockStatement)\""
         },
         {
           "name": "keyword.control.scene-script-data",

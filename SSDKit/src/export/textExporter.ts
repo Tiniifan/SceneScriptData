@@ -181,7 +181,7 @@ class TextLayoutContext {
 
             case 'ShowMessageBoxStatement': {
                 const args = [stmt.format, ...stmt.args].map(exprToString).join(', ');
-                return [this.indent(depth) + `showMessageBox(${args});`];
+                return [this.indent(depth) + `CMND_SAY_MESSAGE(${args});`];
             }
 
             case 'InitializeChildThreadStatement':

@@ -100,6 +100,410 @@ Variable:
         optional: true
 
 Call:
+  - opcode: 0x3002
+    name: CMND_WAIT
+    syntax: CMND_WAIT
+    description: Pauses script execution for a set duration.
+    params:
+      - name: time
+        description: Duration to wait, in frames.
+      - name: input_mask
+        description: Bitmask of inputs that can skip the wait early.
+        optional: true
+
+  - opcode: 0x3004
+    name: CMND_FADE_IN
+    syntax: CMND_FADE_IN
+    description: Fades the screen in from a color/black.
+    params:
+      - name: type
+        description: Fade type/style to use.
+      - name: time
+        description: Fade duration, in frames. Defaults to 8.
+        optional: true
+
+  - opcode: 0x3005
+    name: CMND_FADE_OUT
+    syntax: CMND_FADE_OUT
+    description: Fades the screen out to a color/black.
+    params:
+      - name: type
+        description: Fade type/style to use.
+      - name: time
+        description: Fade duration, in frames. Defaults to 8.
+        optional: true
+
+  - opcode: 0x3006
+    name: CMND_MODE_SET
+    syntax: CMND_MODE_SET
+    description: Sets the current screen/system mode.
+    params:
+      - name: mode
+        description: Mode identifier to switch to.        
+
+  - opcode: 0x3008
+    name: CMND_LOAD_SPR
+    syntax: CMND_LOAD_SPR
+    description: Loads a sprite into a slot.
+    params:
+      - name: idx
+        description: Sprite slot index to load into.
+      - name: name
+        description: Identifier of the sprite resource to load.
+
+  - opcode: 0x3009
+    name: CMND_UNLOAD_SPR
+    syntax: CMND_UNLOAD_SPR
+    description: Unloads a sprite from its slot.
+    params:
+      - name: idx
+        description: Sprite slot index to unload.
+
+  - opcode: 0x300A
+    name: CMND_SET_POS_SPR
+    syntax: CMND_SET_POS_SPR
+    description: Sets the position of a loaded sprite.
+    params:
+      - name: idx
+        description: Sprite slot index to move.
+      - name: x
+        description: X coordinate to set.
+      - name: y
+        description: Y coordinate to set.
+
+  - opcode: 0x300B
+    name: CMND_SET_MOTION_SPR
+    syntax: CMND_SET_MOTION_SPR
+    description: Animates a sprite's position to a target over time.
+    params:
+      - name: idx
+        description: Sprite slot index to animate.
+      - name: x
+        description: Target X coordinate.
+      - name: y
+        description: Target Y coordinate.
+      - name: time
+        description: Animation duration, in frames.
+      - name: unknown
+        description: Unknown purpose.
+        optional: true        
+
+  - opcode: 0x300D
+    name: CMND_SET_LAYER_SPR
+    syntax: CMND_SET_LAYER_SPR
+    description: Sets a sprite's rendering layer/depth.
+    params:
+      - name: idx
+        description: Sprite slot index.
+      - name: z
+        description: Layer/depth value to set.
+
+  - opcode: 0x300E
+    name: CMND_ENABLE_SPR
+    syntax: CMND_ENABLE_SPR
+    description: Sets a sprite's visibility.
+    params:
+      - name: idx
+        description: Sprite slot index.
+      - name: visible
+        description: Visibility flag (0 = hidden, non-zero = visible).
+
+  - opcode: 0x300F
+    name: CMND_FULLSCREEN_SPR
+    syntax: CMND_FULLSCREEN_SPR
+    description: Displays a sprite in fullscreen mode.
+    params:
+      - name: idx
+        description: Sprite slot index.
+
+  - opcode: 0x3010
+    name: CMND_MOVIE_PLAY
+    syntax: MOVIE_PLAY
+    description: Plays a video file.
+    params:
+      - name: name
+        description: Name of the video to load.
+
+  - opcode: 0x3011
+    name: CMND_BGM_LOAD
+    syntax: CMND_BGM_LOAD
+    description: Loads a background music track.
+    params:
+      - name: channel
+        description: BGM channel index.
+      - name: name
+        description: Name of the music resource to load.
+      - name: time
+        description: Fade-in duration, in frames.
+
+  - opcode: 0x3012
+    name: CMND_BGM_PLAY
+    syntax: CMND_BGM_PLAY
+    description: Plays the loaded background music.
+    params:
+      - name: channel
+        description: BGM channel index.
+      - name: loop
+        description: Loop flag (0 = no loop, non-zero = loop).
+
+  - opcode: 0x3013
+    name: CMND_BGM_STOP
+    syntax: CMND_BGM_STOP
+    description: Stops the currently playing background music.
+    params:
+      - name: channel
+        description: BGM channel index.
+      - name: type
+        description: Stop type.
+      - name: time
+        description: Fade-out duration, in frames.
+        optional: true
+
+  - opcode: 0x3014
+    name: CMND_SFX_LOAD
+    syntax: CMND_SFX_LOAD
+    description: Loads a sound effect.
+    params:
+      - name: channel
+        description: SFX channel index.
+      - name: name
+        description: Name of the sound effect resource to load.
+      - name: time
+        description: Fade-in duration, in frames.
+
+  - opcode: 0x3015
+    name: CMND_SFX_PLAY
+    syntax: CMND_SFX_PLAY
+    description: Plays a loaded sound effect.
+    params:
+      - name: channel
+        description: SFX channel index.
+      - name: loop
+        description: Loop flag (0 = no loop, non-zero = loop).
+
+  - opcode: 0x3016
+    name: CMND_SFX_STOP
+    syntax: CMND_SFX_STOP
+    description: Stops a playing sound effect.
+    params:
+      - name: channel
+        description: SFX channel index.
+      - name: type
+        description: Stop type.
+      - name: time
+        description: Fade-out duration, in frames.
+        optional: true
+
+  - opcode: 0x3017
+    name: CMND_STRM_PLAY
+    syntax: CMND_STRM_PLAY
+    description: Plays a streamed audio track.
+    params:
+      - name: channel
+        description: Stream channel index.
+      - name: name
+        description: Name of the audio stream resource to play.
+
+  - opcode: 0x3018
+    name: CMND_STRM_STOP
+    syntax: CMND_STRM_STOP
+    description: Stops the currently playing streamed audio.
+    params:
+      - name: channel
+        description: Stream channel index.
+      - name: type
+        description: Stop type.
+      - name: time
+        description: Fade-out duration, in frames.
+
+  - opcode: 0x3019
+    name: CMND_SET_NAME_MESSAGE
+    syntax: CMND_SET_NAME_MESSAGE
+    description: Sets the speaker name shown in the message box.
+    params:
+      - name: name
+        description: Speaker name to display.
+      - name: unknown1
+        description: Unknown purpose.
+        optional: true
+      - name: unknown2
+        description: Unknown purpose.
+        optional: true
+      - name: unknown3
+        description: Unknown purpose.
+        optional: true
+      - name: unknown4
+        description: Unknown purpose.
+        optional: true
+      - name: unknown5
+        description: Unknown purpose.
+        optional: true
+      - name: unknown6
+        description: Unknown purpose.
+        optional: true
+      - name: unknown7
+        description: Unknown purpose.
+        optional: true
+
+  - opcode: 0x301A
+    name: CMND_SET_SPEAKER_MESSAGE
+    syntax: CMND_MESSAGE_Speaker
+    description: Sets the character shown as the speaker in the message box, replacing the plain name.
+    params:
+      - name: unknown1
+        description: Unknown purpose.
+      - name: unit_no
+        description: Character unit ID to display as speaker.
+      - name: unknown2
+        description: Unknown purpose.
+      - name: wear_no
+        description: Outfit/appearance variant of the character. Defaults to 0.
+      - name: unknown3
+        description: Unknown purpose.
+      - name: unknown4
+        description: Unknown purpose. Often -1.
+
+  - opcode: 0x301C
+    name: CMND_SET_BLANK_MESSAGE
+    syntax: CMND_SET_BLANK_MESSAGE
+    description: Opens a message box with no speaker specified.
+    params:
+      - name: type
+        description: Message box type.
+      - name: subtype
+        description: Message box variant.
+      - name: unknown1
+        description: Unknown purpose.
+      - name: unknown2
+        description: Unknown purpose.
+      - name: unknown3
+        description: Unknown purpose.
+      - name: unknown4
+        description: Unknown purpose.
+
+  - opcode: 0x301D
+    name: CMND_SAY_MESSAGE
+    syntax: CMND_SAY_MESSAGE
+    description: Displays text in the current message box, with optional format arguments.
+    params:
+      - name: text
+        description: Text to display
+      - name: args
+        description: Optional values substituted into the text's format specifiers.
+        optional: true
+
+  - opcode: 0x301E
+    name: CMND_CLOSE_MESSAGE
+    syntax: CMND_CLOSE_MESSAGE
+    description: Closes the current message box.
+
+  - opcode: 0x3031
+    name: CMND_EFF_PLAY
+    syntax: CMND_EFF_PLAY
+    description: Plays a visual effect.
+    params:
+      - name: idx
+        description: Effect slot index.
+      - name: type
+        description: Effect identifier to play.
+      - name: time
+        description: Effect duration, in frames.
+        optional: true
+
+  - opcode: 0x3032
+    name: CMND_EFF_STOP
+    syntax: CMND_EFF_STOP
+    description: Stops a playing visual effect.
+    params:
+      - name: idx
+        description: Effect slot index.        
+
+  - opcode: 0x3058
+    name: CMND_CREATE_CHARA
+    syntax: CMND_CREATE_CHARA
+    description: Creates a character instance.
+    params:
+      - name: unit_no
+        description: Character unit ID to create.
+      - name: instance
+        description: Instance index for this character.
+      - name: wear_no
+        description: Appearance variant to use.
+
+  - opcode: 0x3059
+    name: CMND_DELETE_CHARA
+    syntax: CMND_DELETE_CHARA
+    description: Deletes a character instance.
+    params:
+      - name: unit_no
+        description: Character unit ID to delete.
+      - name: instance
+        description: Instance index of this character.
+      - name: wear_no
+        description: Appearance variant.
+
+  - opcode: 0x305A
+    name: CMND_SET_POS_CHARA
+    syntax: CMND_SET_POS_CHARA
+    description: Sets a character instance's position.
+    params:
+      - name: unit_no
+        description: Character unit ID.
+      - name: instance
+        description: Instance index of this character.
+      - name: x
+        description: X coordinate to set.
+      - name: y
+        description: Y coordinate to set.
+      - name: z
+        description: Z coordinate to set.
+
+  - opcode: 0x305B
+    name: CMND_SET_MOTION_CHARA
+    syntax: CMND_SET_MOTION_CHARA
+    description: Animates a character instance's position to a target over time.
+    params:
+      - name: unit_no
+        description: Character unit ID.
+      - name: instance
+        description: Instance index of this character.
+      - name: x
+        description: Target X coordinate.
+      - name: y
+        description: Target Y coordinate.
+      - name: z
+        description: Target Z coordinate.
+      - name: time
+        description: Animation duration, in frames.
+
+  - opcode: 0x305C
+    name: CMND_SET_ROT_CHARA
+    syntax: CMND_SET_ROT_CHARA
+    description: Sets a character instance's rotation angle.
+    params:
+      - name: unit_no
+        description: Character unit ID.
+      - name: instance
+        description: Instance index/slot of this character.
+      - name: angle
+        description: Rotation angle to set.
+
+  - opcode: 0x305D
+    name: CMND_QUICK_TURN_CHARA
+    syntax: CMND_QUICK_TURN_CHARA
+    description: Animates a character instance's rotation to a target angle over time.
+    params:
+      - name: unit_no
+        description: Character unit ID.
+      - name: instance
+        description: Instance index/slot of this character.
+      - name: angle
+        description: Target rotation angle.
+      - name: time
+        description: Animation duration, in frames.
+      - name: unknown
+        description: Unknown purpose.
+
   - opcode: 0x3070
     name: Print
     syntax: print
@@ -114,84 +518,11 @@ Call:
       - name: arg2
         optional: true
 
-  - opcode: 0x3058
-    name: CreateCharacter
-    syntax: createCharacter
-    params:
-      - name: characterId
-      - name: unk1
-        optional: true
-      - name: unk2
-        optional: true
-
-  - opcode: 0x3059
-    name: ACTOR_UNLOAD
-    syntax: ACTOR_UNLOAD
-    params:
-      - name: characterId
-      - name: unk1     
-
-  - opcode: 0x305A
-    name: SetCharacterPosition
-    syntax: setCharacterPosition
-    params:
-      - name: characterId
-      - name: unk1
-      - name: unk2
-      - name: unk3
-      - name: unk4
-
-  - opcode: 0x305C
-    name: RotateCharacter
-    syntax: rotateCharacter
-    params:
-      - name: characterId
-      - name: unk1
-      - name: unk2
-
   - opcode: 0x4099
     name: ReplaceSkillInMessage
     syntax: replaceSkillInMessage
     params:
       - name: skillId
-
-  - opcode: 0x3017
-    name: PlayStream
-    syntax: playStream
-    params:
-      - name: unk1
-      - name: streamId
-      - name: unk2
-        optional: true
-      - name: unk3
-        optional: true
-
-  - opcode: 0x3014
-    name: PlaySoundEffect
-    syntax: playSoundEffect
-    params:
-      - name: unk1
-      - name: soundEffectId
-
-  - opcode: 0x301D
-    name: ShowMessageBox
-    syntax: showMessageBox
-    params:
-      - name: format
-      - name: arg0
-        optional: true
-      - name: arg1
-        optional: true
-
-  - opcode: 0x301E
-    name: DeleteMessageBox
-    syntax: deleteMessageBox
-
-  - opcode: 0x3002
-    name: WaitFrame
-    syntax: waitFrame
-    params:
-      - name: frameCount
 
   - opcode: 0x40D2
     name: GetGameVersion

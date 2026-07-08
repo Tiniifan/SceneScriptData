@@ -231,7 +231,7 @@ class LayoutContext {
       }
       case 'ShowMessageBoxStatement': {
         const allArgs = [stmt.format, ...stmt.args].map(exprToString).join(', ');
-        return this.renderLeaf(stmt.kind, `showMessageBox(${allArgs})`, x, y);
+        return this.renderLeaf(stmt.kind, `CMND_SAY_MESSAGE(${allArgs})`, x, y);
       }
       case 'InitializeChildThreadStatement':
         return this.renderThreadScope(stmt.kind, 'initializeChildThread', stmt.unk1, stmt.body, x, y);
