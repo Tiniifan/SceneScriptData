@@ -60,7 +60,7 @@
       "patterns": [
         {
           "name": "keyword.control.scene-script-data",
-          "match": "\\b(if|else|while|function|local|print|initializeChildThread|addChildThread|requires|return)\\b"
+          "match": "\\b(if|else|while|switch|case|default|break|function|local|print|initializeChildThread|addChildThread|requires|return)\\b"
         }
       ]
     },
