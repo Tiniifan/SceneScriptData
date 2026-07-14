@@ -9,6 +9,10 @@ import {
     ExpressionNode,
     IfStatementNode,
     WhileStatementNode,
+    SwitchStatementNode,
+    SwitchCaseNode,
+    BreakStatementNode,
+    ReturnStatementNode,
     VariableDeclarationNode,
     ExpressionStatementNode,
     PrintStatementNode,
@@ -22,6 +26,7 @@ import {
     BinaryExpressionNode,
     CallExpressionNode,
 } from '../types/astNode';
+import { validateProgram } from '../compiler/astValidator';
 
 // #region Public API
 
@@ -92,6 +97,41 @@ export function parseProgramFromText(text: string, options: TextImportOptions = 
         }
     }
 
+// -------------------------------------------------------------------------
+    // Switch stack
+    //
+    // A switch's case/default clauses have no textual braces, so they cannot
+    // be tracked through the normal enterBlock/exitBlock mechanism. Instead,
+    // `activeCase` on the top frame points at the BlockStatementNode currently
+    // receiving statements; it is reassigned on every `case:`/`default:` line
+    // and cleared by the switch's own closing `}`.
+    // -------------------------------------------------------------------------
+
+    interface SwitchFrame {
+        node: SwitchStatementNode;
+        activeCase: BlockStatementNode | null;
+    }
+
+    const switchStack: SwitchFrame[] = [];
+    let pendingSwitch: SwitchStatementNode | null = null;
+
+    /** Resolves which block new statements should be appended to. */
+    function getTargetBlock(lineNumber: number, trimmed: string): BlockStatementNode {
+        if (switchStack.length > 0) {
+            const frame = switchStack[switchStack.length - 1];
+            if (frame.activeCase === null) {
+                throw new Error(
+                    `Line ${lineNumber}: statement found directly inside a switch body, outside any "case"/"default": "${trimmed}"`
+                );
+            }
+            return frame.activeCase;
+        }
+        if (currentBlock === null) {
+            throw new Error(`Line ${lineNumber}: statement found outside any block: "${trimmed}"`);
+        }
+        return currentBlock;
+    }    
+
     // -------------------------------------------------------------------------
     // Main parsing loop
     // -------------------------------------------------------------------------
@@ -115,6 +155,9 @@ export function parseProgramFromText(text: string, options: TextImportOptions = 
             trimmed === '}'                    ||
             /^if\s*\(/.test(trimmed)           ||
             /^while\s*\(/.test(trimmed)        ||
+            /^switch\s*\(/.test(trimmed)       ||
+            /^case\s+.+:$/.test(trimmed)       ||
+            trimmed === 'default:'             ||
             /^requires\s*\(/.test(trimmed)     ||
             /^}\s*else(\s+if\s*\()?/.test(trimmed) ||
             /^initializeChildThread\s*\(/.test(trimmed) ||
@@ -177,14 +220,72 @@ export function parseProgramFromText(text: string, options: TextImportOptions = 
             continue;
         }
 
+        // Switch statement — pushes the node into the current target block and
+        // waits for the following "{" to activate it.
+        if (/^switch\s*\(/.test(trimmed)) {
+            const target = getTargetBlock(lineNumber, trimmed);
+            const parenStart = trimmed.indexOf('(');
+            const disc = extractParenthesized(trimmed, parenStart);
+            if (disc === null) {
+                throw new Error(`Line ${lineNumber}: unbalanced parentheses in "switch": "${trimmed}"`);
+            }
+
+            const switchNode: SwitchStatementNode = {
+                kind: 'SwitchStatement',
+                discriminant: parseExpression(disc),
+                cases: [],
+                raw: []
+            };
+            target.body.push(switchNode);
+            pendingSwitch = switchNode;
+            continue;
+        }        
+
         // Open block — consumes the pending scope opened by the preceding header
         if (trimmed === '{') {
-            if (pendingBlock !== null) {
+            if (pendingSwitch !== null) {
+                switchStack.push({ node: pendingSwitch, activeCase: null });
+                pendingSwitch = null;
+            } else if (pendingBlock !== null) {
                 enterBlock(pendingBlock);
                 pendingBlock = null;
             }
             continue;
         }
+
+// case <constant>:
+        const caseMatch = trimmed.match(/^case\s+(.+):$/);
+        if (caseMatch) {
+            if (switchStack.length === 0) {
+                throw new Error(`Line ${lineNumber}: "case" found outside a switch.`);
+            }
+            const frame = switchStack[switchStack.length - 1];
+
+            const valueExpr = parseExpression(caseMatch[1].trim());
+            if (valueExpr.kind !== 'Literal' && valueExpr.kind !== 'StringRef') {
+                throw new Error(`Line ${lineNumber}: "case" value must be a constant number or string: "${trimmed}"`);
+            }
+
+            const consequent: BlockStatementNode = { kind: 'BlockStatement', body: [], openRaw: -1, closeRaw: -1 };
+            const clause: SwitchCaseNode = { kind: 'SwitchCase', test: valueExpr, consequent, raw: [] };
+            frame.node.cases.push(clause);
+            frame.activeCase = consequent;
+            continue;
+        }
+
+        // default:
+        if (trimmed === 'default:') {
+            if (switchStack.length === 0) {
+                throw new Error(`Line ${lineNumber}: "default" found outside a switch.`);
+            }
+            const frame = switchStack[switchStack.length - 1];
+
+            const consequent: BlockStatementNode = { kind: 'BlockStatement', body: [], openRaw: -1, closeRaw: -1 };
+            const clause: SwitchCaseNode = { kind: 'SwitchCase', test: null, consequent, raw: [] };
+            frame.node.cases.push(clause);
+            frame.activeCase = consequent;
+            continue;
+        }        
 
         // "} else if (...)" — closes the current block then attaches an else-if branch
         const elseIfMatch = trimmed.match(/^}\s*else\s+if\s*\(/);
@@ -244,21 +345,19 @@ export function parseProgramFromText(text: string, options: TextImportOptions = 
             continue;
         }
 
-        // Plain close block
+        // Plain close block — a switch never touches blockStack/currentBlock
+        // (see getTargetBlock), so any "}" seen while a switch is active can
+        // only be the switch's own closing brace.
         if (trimmed === '}') {
-            exitBlock();
+            if (switchStack.length > 0) {
+                switchStack.pop();
+            } else {
+                exitBlock();
+            }
             continue;
         }
 
-        // All remaining statement kinds require an active block.
-        // We assign to a local const so TypeScript's narrowing works correctly —
-        // a captured `let` variable cannot be narrowed through closure calls.
-        if (currentBlock === null) {
-            throw new Error(
-                `Line ${lineNumber}: statement found outside any block: "${trimmed}"`
-            );
-        }
-        const block : BlockStatementNode = currentBlock;
+        const block: BlockStatementNode = getTargetBlock(lineNumber, trimmed);
 
         // If statement
         if (/^if\s*\(/.test(trimmed)) {
@@ -322,6 +421,23 @@ export function parseProgramFromText(text: string, options: TextImportOptions = 
             block.body.push(varDecl);
             continue;
         }
+
+        // break;
+        if (trimmed === 'break') {
+            block.body.push({ kind: 'BreakStatement', raw: [] } as BreakStatementNode);
+            continue;
+        }
+
+        // return; or return <expr>;
+       if (trimmed === 'return' || /^return\s*\(/.test(trimmed) || /^return\s+/.test(trimmed)) {
+            const exprPart = trimmed.slice('return'.length).trim();
+            block.body.push({
+                kind: 'ReturnStatement',
+                argument: exprPart.length > 0 ? parseExpression(exprPart) : null,
+                raw: []
+            } as ReturnStatementNode);
+            continue;
+        }        
 
         // Print statement  →  print(<format>, ...args);
         if (/^print\s*\(/.test(trimmed)) {
@@ -454,6 +570,20 @@ export function parseProgramFromText(text: string, options: TextImportOptions = 
         }
         program.body = filtered;
     }
+
+    // Save any remaining function that was not followed by another declaration
+    saveCurrentFunction();
+
+    if (switchStack.length > 0) {
+        throw new Error('Unclosed "switch" statement: missing closing "}".');
+    }
+
+    // Filter by function name if specified
+    if (options.functionName) {
+        // ...existing code...
+    }
+
+    validateProgram(program);
 
     return program;
 }
@@ -609,6 +739,14 @@ function splitTopLevelCommas(text: string): string[] {
  */
 function parseExpression(expr: string): ExpressionNode {
     const trimmed = expr.trim();
+
+    // Parenthesized expression: (expr) — strip one layer and re-parse.
+    if (trimmed.startsWith('(') && trimmed.endsWith(')')) {
+        const inner = extractParenthesized(trimmed, 0);
+        if (inner !== null && inner.length === trimmed.length - 2) {
+            return parseExpression(inner);
+        }
+    }
 
     // Integer or float literal
     if (/^-?\d+(\.\d+)?$/.test(trimmed)) {

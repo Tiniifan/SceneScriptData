@@ -85,6 +85,56 @@ ControlFlow:
     description: Registers a child thread block inside initializeChildThread.
     params:
       - name: unk1
+        
+  - opcode: 0x600B
+    name: Switch
+    syntax: switch
+    description: |
+      Multi-way branch. Evaluates the discriminant once. Unlike If/While, the
+      Switch instruction itself does not open a block — each Case/Default
+      clause owns its own OpenBlock/CloseBlock pair.
+    params:
+      - name: discriminant
+        description: Reference to the expression being matched.
+
+  - opcode: 0x600D
+    name: Case
+    syntax: case
+    description: |
+      Labels a case clause inside a switch. Emitted as the first instruction
+      inside the clause's own OpenBlock/CloseBlock pair (not before it).
+    params:
+      - name: blockOrdinal
+        description: Ordinal of this clause's owning block (same numbering system as OpenBlock).
+      - name: value
+        description: Constant value (Int, HalfFloat, or String) this case matches.
+
+  - opcode: 0x6011
+    name: Default
+    syntax: default
+    description: |
+      Labels the default clause of a switch. Same placement rules as Case,
+      but carries no comparison value. At most one per switch.
+    params:
+      - name: blockOrdinal
+        description: Ordinal of this clause's owning block.
+
+  - opcode: 0x600E
+    name: Break
+    syntax: break
+    description: Exits the nearest enclosing case/default block.
+    params:
+      - name: contextRef
+        description: Block ordinal being exited (matches the owning case/default's blockOrdinal).
+
+  - opcode: 0x6010
+    name: Return
+    syntax: return
+    description: Returns from the current function, optionally with a value.
+    params:
+      - name: value
+        description: Expression to return.
+        optional: true
 
 Variable:
   - opcode: 0x7001

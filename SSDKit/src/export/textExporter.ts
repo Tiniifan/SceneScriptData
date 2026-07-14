@@ -8,6 +8,8 @@ import {
     StatementNode,
     IfStatementNode,
     WhileStatementNode,
+    SwitchStatementNode,
+    SwitchCaseNode,
 } from '../types/astNode';
 
 // #region Public API
@@ -138,8 +140,8 @@ class TextLayoutContext {
             //   2. The current statement is a block (if/while) OR the previous one was.
             if (i > 0) {
                 const prevStmt = block.body[i - 1];
-                const isCurrentBlock = stmt.kind === 'IfStatement' || stmt.kind === 'WhileStatement';
-                const isPrevBlock = prevStmt.kind === 'IfStatement' || prevStmt.kind === 'WhileStatement';
+                const isCurrentBlock = stmt.kind === 'IfStatement' || stmt.kind === 'WhileStatement' || stmt.kind === 'SwitchStatement';
+                const isPrevBlock = prevStmt.kind === 'IfStatement' || prevStmt.kind === 'WhileStatement' || prevStmt.kind === 'SwitchStatement';
 
                 if (isCurrentBlock || isPrevBlock) {
                     lines.push('');
@@ -168,6 +170,19 @@ class TextLayoutContext {
             case 'WhileStatement':
                 return this.renderWhileStatement(stmt, depth);
 
+            case 'SwitchStatement':
+                return this.renderSwitchStatement(stmt, depth);
+
+            case 'BreakStatement':
+                return [this.indent(depth) + 'break;'];
+
+            case 'ReturnStatement':
+                return [this.indent(depth) + (
+                    stmt.argument !== null
+                        ? `return ${exprToString(stmt.argument)};`
+                        : 'return;'
+                )];            
+            
             case 'VariableDeclaration':
                 return [this.indent(depth) + `local ${stmt.name} = ${exprToString(stmt.init)};`];
 
@@ -253,6 +268,44 @@ class TextLayoutContext {
         lines.push(...this.renderBlock(node.body, depth));
         return lines;
     }
+
+/**
+     * switch (<expr>) { case ...: ... default: ... }
+     *
+     * The `{ }` printed here are a purely textual reconstruction — the
+     * binary form has no block for the switch itself (see astNode.ts docs).
+     */
+    renderSwitchStatement(node: SwitchStatementNode, depth: number): string[] {
+        const lines: string[] = [];
+        lines.push(this.indent(depth) + `switch (${exprToString(node.discriminant)})`);
+        lines.push(this.indent(depth) + '{');
+
+        for (let i = 0; i < node.cases.length; i++) {
+            if (i > 0) lines.push('');
+            lines.push(...this.renderSwitchCase(node.cases[i], depth + 1));
+        }
+
+        lines.push(this.indent(depth) + '}');
+        return lines;
+    }
+
+    /**
+     * A single case/default clause. Its body is NOT wrapped in `{ }` —
+     * only the enclosing switch gets braces — but it does own its own
+     * binary block (OpenBlock/CloseBlock), reconstructed here purely via
+     * indentation.
+     */
+    renderSwitchCase(clause: SwitchCaseNode, depth: number): string[] {
+        const lines: string[] = [];
+        const label = clause.test === null ? 'default:' : `case ${exprToString(clause.test)}:`;
+        lines.push(this.indent(depth) + label);
+
+        for (const stmt of clause.consequent.body) {
+            lines.push(...this.renderStatement(stmt, depth + 1));
+        }
+
+        return lines;
+    }    
 
     // -------------------------------------------------------------------------
     // Indentation helper

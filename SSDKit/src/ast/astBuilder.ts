@@ -24,6 +24,10 @@ import {
     StringRefNode,
     BinaryExpressionNode,
     CallExpressionNode,
+    SwitchStatementNode,
+    SwitchCaseNode,
+    BreakStatementNode,
+    ReturnStatementNode,
 } from '../types/astNode';
 
 // ---------------------------------------------------------------------------
@@ -270,16 +274,20 @@ export class ASTBuilder {
         switch (opcode) {
             case 0x3001: return this.buildFunctionDeclaration(cursor);
 
-            // These should always be consumed by their parent builder (consumeBlock,
-            // buildIfStatement, buildFunctionDeclaration).  If they somehow reach
-            // buildStatementList as a standalone instruction, advance the cursor so
-            // we never stall — the infinite loop source.
             case 0x6001: cursor.pos++; return null;
             case 0x600C: cursor.pos++; return null;
             case 0x6012: cursor.pos++; return null;
+            // CASE/DEFAULT should always be consumed inside buildSwitchCase();
+            // if one is ever hit standalone (corrupt/unexpected stream), skip
+            // it rather than stalling the cursor.
+            case 0x600D: cursor.pos++; return null;
+            case 0x6011: cursor.pos++; return null;
 
             case 0x6008: return this.buildIfStatement(cursor);
             case 0x6009: return this.buildWhileStatement(cursor);
+            case 0x600B: return this.buildSwitchStatement(cursor);
+            case 0x600E: return this.buildBreakStatement(cursor);
+            case 0x6010: return this.buildReturnStatement(cursor);
             case 0x7001: return this.buildVariableDeclaration(cursor);
             case 0x3070: return this.buildPrintStatement(cursor);
             case 0x301D: return this.buildShowMessageBoxStatement(cursor);
@@ -413,6 +421,103 @@ export class ASTBuilder {
         const body = this.consumeBlock(cursor);
         return { kind: 'WhileStatement', condition, body, raw };
     }
+
+// ---------------------------------------------------------------------------
+    // SwitchStatement (0x600B) — the switch itself owns no block; every clause
+    // (CASE 0x600D / DEFAULT 0x6011) is wrapped in its own OpenBlock/CloseBlock.
+    // ---------------------------------------------------------------------------
+
+    private buildSwitchStatement(cursor: Cursor): SwitchStatementNode {
+        const inst = this.instructions[cursor.pos];
+        const raw = [inst.index];
+        const discriminant = this.resolveArg(inst, 0);
+        cursor.pos++; // consume Switch
+
+        // Skip any inline expression instructions consumed by the discriminant
+        // (e.g. a CallExpression evaluated just before the switch).
+        this.skipInlines(cursor);
+
+        const cases: SwitchCaseNode[] = [];
+
+        while (
+            cursor.pos < this.instructions.length &&
+            this.instructions[cursor.pos].type === 0x6001 // OpenBlock
+        ) {
+            const clause = this.buildSwitchCase(cursor);
+            if (clause === null) break;
+            cases.push(clause);
+        }
+
+        return { kind: 'SwitchStatement', discriminant, cases, raw };
+    }
+
+    /**
+     * Consumes one `OpenBlock CASE|DEFAULT ...body... CloseBlock` group.
+     * Returns null (without advancing past the OpenBlock) if the block that
+     * follows is not actually a case/default clause — this lets the caller
+     * stop the switch's clause loop cleanly.
+     */
+    private buildSwitchCase(cursor: Cursor): SwitchCaseNode | null {
+        const openInst = this.instructions[cursor.pos];
+        const openRaw = openInst.index;
+
+        const closeBlockId = openInst.args.length >= 2 ? openInst.args[1] : openInst.args[0];
+        const closeArrayIdx = this.idToArrayIndex(closeBlockId);
+        if (closeArrayIdx === -1) return null;
+
+        cursor.pos++; // consume OpenBlock
+
+        if (cursor.pos >= this.instructions.length) {
+            cursor.pos--; // rewind, not a switch clause
+            return null;
+        }
+
+        const markerInst = this.instructions[cursor.pos];
+        if (markerInst.type !== 0x600D && markerInst.type !== 0x6011) {
+            cursor.pos--; // rewind — this OpenBlock belongs to something else
+            return null;
+        }
+
+        let test: SwitchCaseNode['test'] = null;
+        if (markerInst.type === 0x600D) {
+            // args[0] = case's own block ordinal (informational only here — the
+            // block pairing is already handled via OpenBlock/CloseBlock ids).
+            // args[1] = the constant value.
+            test = this.resolveArg(markerInst, 1) as SwitchCaseNode['test'];
+        }
+
+        const raw = [openRaw, markerInst.index];
+        cursor.pos++; // consume CASE/DEFAULT marker
+
+        const body = this.buildStatementList(cursor, closeArrayIdx + 1);
+
+        let closeRaw = -1;
+        if (cursor.pos < this.instructions.length &&
+            this.instructions[cursor.pos].type === 0x6002) {
+            closeRaw = this.instructions[cursor.pos].index;
+            cursor.pos++; // consume CloseBlock
+        }
+
+        const consequent: BlockStatementNode = { kind: 'BlockStatement', body, openRaw, closeRaw };
+        return { kind: 'SwitchCase', test, consequent, raw };
+    }
+
+    // ---------------------------------------------------------------------------
+    // BreakStatement (0x600E) / ReturnStatement (0x6010)
+    // ---------------------------------------------------------------------------
+
+    private buildBreakStatement(cursor: Cursor): BreakStatementNode {
+        const inst = this.instructions[cursor.pos];
+        cursor.pos++;
+        return { kind: 'BreakStatement', raw: [inst.index] };
+    }
+
+    private buildReturnStatement(cursor: Cursor): ReturnStatementNode {
+        const inst = this.instructions[cursor.pos];
+        const argument = inst.args.length > 0 ? this.resolveArg(inst, 0) : null;
+        cursor.pos++;
+        return { kind: 'ReturnStatement', argument, raw: [inst.index] };
+    }    
 
     // ---------------------------------------------------------------------------
     // Block consumption — OpenBlock (0x6001) ... CloseBlock (0x6002)

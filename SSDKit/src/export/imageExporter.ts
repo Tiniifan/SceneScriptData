@@ -128,10 +128,10 @@ class LayoutContext {
     const parts: string[] = [];
 
     for (const stmt of program.body) {
-      const box = this.renderStatement(stmt, x + H_PADDING, curY);
-      parts.push(box.svg);
-      maxWidth = Math.max(maxWidth, box.width + H_PADDING * 2);
-      curY = box.y + box.height + NODE_GAP;
+      //const box = this.renderStatement(stmt, x + H_PADDING, curY);
+      //parts.push(box.svg);
+      //maxWidth = Math.max(maxWidth, box.width + H_PADDING * 2);
+      //curY = box.y + box.height + NODE_GAP;
     }
 
     const width = maxWidth;
@@ -193,10 +193,10 @@ class LayoutContext {
     const parts: string[] = [];
 
     for (const stmt of block.body) {
-      const box = this.renderStatement(stmt, x + INDENT_WIDTH, curY);
-      parts.push(box.svg);
-      maxWidth = Math.max(maxWidth, box.width + INDENT_WIDTH);
-      curY = box.y + box.height + NODE_GAP;
+      // const box = this.renderStatement(stmt, x + INDENT_WIDTH, curY);
+      // parts.push(box.svg);
+      // maxWidth = Math.max(maxWidth, box.width + INDENT_WIDTH);
+      // curY = box.y + box.height + NODE_GAP;
     }
 
     const totalWidth = maxWidth + H_PADDING;
@@ -218,31 +218,31 @@ class LayoutContext {
   // Statements
   // -----------
 
-  renderStatement(stmt: StatementNode, x: number, y: number): Box {
-    switch (stmt.kind) {
-      case 'FunctionDeclaration': return this.renderFunction(stmt, x, y);
-      case 'IfStatement': return this.renderIfStatement(stmt, x, y);
-      case 'WhileStatement': return this.renderWhileStatement(stmt, x, y);
-      case 'VariableDeclaration': return this.renderLeaf(stmt.kind, `local ${stmt.name} = ${exprToString(stmt.init)}`, x, y);
-      case 'ExpressionStatement': return this.renderLeaf(stmt.kind, exprToString(stmt.expression), x, y);
-      case 'PrintStatement': {
-        const allArgs = [stmt.format, ...stmt.args].map(exprToString).join(', ');
-        return this.renderLeaf(stmt.kind, `print(${allArgs})`, x, y);
-      }
-      case 'ShowMessageBoxStatement': {
-        const allArgs = [stmt.format, ...stmt.args].map(exprToString).join(', ');
-        return this.renderLeaf(stmt.kind, `CMND_SAY_MESSAGE(${allArgs})`, x, y);
-      }
-      case 'InitializeChildThreadStatement':
-        return this.renderThreadScope(stmt.kind, 'initializeChildThread', stmt.unk1, stmt.body, x, y);
-      case 'AddChildThreadStatement':
-        return this.renderThreadScope(stmt.kind, 'addChildThread', stmt.unk1, stmt.body, x, y);
-      case 'UnknownStatement': {
-        const args = stmt.resolvedArgs.map(exprToString).join(', ');
-        return this.renderLeaf(stmt.kind, `${stmt.opcodeHex}(${args})`, x, y);
-      }
-    }
-  }
+  //renderStatement(stmt: StatementNode, x: number, y: number): Box {
+    // switch (stmt.kind) {
+    //   case 'FunctionDeclaration': return this.renderFunction(stmt, x, y);
+    //   case 'IfStatement': return this.renderIfStatement(stmt, x, y);
+    //   case 'WhileStatement': return this.renderWhileStatement(stmt, x, y);
+    //   case 'VariableDeclaration': return this.renderLeaf(stmt.kind, `local ${stmt.name} = ${exprToString(stmt.init)}`, x, y);
+    //   case 'ExpressionStatement': return this.renderLeaf(stmt.kind, exprToString(stmt.expression), x, y);
+    //   case 'PrintStatement': {
+    //     const allArgs = [stmt.format, ...stmt.args].map(exprToString).join(', ');
+    //     return this.renderLeaf(stmt.kind, `print(${allArgs})`, x, y);
+    //   }
+    //   case 'ShowMessageBoxStatement': {
+    //     const allArgs = [stmt.format, ...stmt.args].map(exprToString).join(', ');
+    //     return this.renderLeaf(stmt.kind, `CMND_SAY_MESSAGE(${allArgs})`, x, y);
+    //   }
+    //   case 'InitializeChildThreadStatement':
+    //     return this.renderThreadScope(stmt.kind, 'initializeChildThread', stmt.unk1, stmt.body, x, y);
+    //   case 'AddChildThreadStatement':
+    //     return this.renderThreadScope(stmt.kind, 'addChildThread', stmt.unk1, stmt.body, x, y);
+    //   case 'UnknownStatement': {
+    //     const args = stmt.resolvedArgs.map(exprToString).join(', ');
+    //     return this.renderLeaf(stmt.kind, `${stmt.opcodeHex}(${args})`, x, y);
+    //   }
+    // }
+  //}
 
   renderThreadScope(
     kind: string,

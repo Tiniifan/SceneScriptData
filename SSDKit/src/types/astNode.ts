@@ -174,6 +174,58 @@ export interface WhileStatementNode {
 }
 
 /**
+ * A single `case <constant>:` or `default:` clause inside a switch.
+ * `test === null` marks the default clause.
+ *
+ * The clause always owns its own scope (OpenBlock/CloseBlock in the binary),
+ * even though the textual export does not print braces around it — the
+ * braces belong visually to the enclosing switch only (see SwitchStatementNode).
+ */
+export interface SwitchCaseNode {
+  kind:       'SwitchCase';
+  /** Constant case value, or null for `default:`. Must be Literal or StringRef. */
+  test:       LiteralNode | StringRefNode | null;
+  consequent: BlockStatementNode;
+  raw:        number[];
+}
+
+/**
+ * switch (<discriminant>) { case ...: ... default: ... }
+ *
+ * IMPORTANT — the switch itself does NOT own a binary block (no OpenBlock/
+ * CloseBlock pair for the switch). Each entry in `cases` owns its own block.
+ * The textual `{ }` around the whole switch is purely a display convention
+ * reconstructed by the exporter; it does not exist in the binary form.
+ */
+export interface SwitchStatementNode {
+  kind:         'SwitchStatement';
+  discriminant: ExpressionNode;
+  cases:        SwitchCaseNode[];
+  raw:          number[];
+}
+
+/**
+ * break; — exits the nearest enclosing case/default block.
+ * The binary target (which block ordinal it resolves to) is derived at
+ * compile time from the surrounding SwitchCaseNode; it is not stored on
+ * this node.
+ */
+export interface BreakStatementNode {
+  kind: 'BreakStatement';
+  raw:  number[];
+}
+
+/**
+ * return; or return <expr>;
+ * `argument === null` means a bare `return;` (argument_count = 0 in binary).
+ */
+export interface ReturnStatementNode {
+  kind:     'ReturnStatement';
+  argument: ExpressionNode | null;
+  raw:      number[];
+}
+
+/**
  * Describes a single parameter slot of a declared function.
  * The varId is what appears in args[2+] of the FunctionDeclaration instruction.
  * At call sites, argument position i maps to params[i].varId inside the body.
@@ -241,9 +293,11 @@ export type StatementNode =
   | AddChildThreadStatementNode
   | IfStatementNode
   | WhileStatementNode
+  | SwitchStatementNode
+  | BreakStatementNode
+  | ReturnStatementNode
   | FunctionDeclarationNode
   | UnknownStatementNode;
-
 //#endregion
 
 //#region Top-level program node
@@ -267,6 +321,10 @@ export type ASTNode =
   | FunctionDeclarationNode
   | IfStatementNode
   | WhileStatementNode
+  | SwitchStatementNode
+  | SwitchCaseNode
+  | BreakStatementNode
+  | ReturnStatementNode
   | VariableDeclarationNode
   | ExpressionStatementNode
   | PrintStatementNode

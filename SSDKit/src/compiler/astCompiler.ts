@@ -1,6 +1,7 @@
 import { createDefaultRegistry } from '../registry/builtinInstructions';
 import { InstructionRegistry } from '../registry/instructionRegistry';
 import { ArgType } from '../types/argType';
+import { validateProgram } from './astValidator'; 
 import type {
   ProgramNode,
   StatementNode,
@@ -8,6 +9,10 @@ import type {
   BlockStatementNode,
   IfStatementNode,
   WhileStatementNode,
+  SwitchStatementNode,
+  SwitchCaseNode,
+  BreakStatementNode,
+  ReturnStatementNode,
   FunctionDeclarationNode,
   VariableDeclarationNode,
   PrintStatementNode,
@@ -15,6 +20,8 @@ import type {
   InitializeChildThreadStatementNode,
   AddChildThreadStatementNode,
   UnknownStatementNode,
+  LiteralNode,
+  StringRefNode,
 } from '../types/astNode';
 import { RawInstruction, SSDFile } from '../types/rawInstruction';
 import { makeRawInstruction, buildSSDHeader, computeInstructionRecordSize } from '../writer/ssdWriter';
@@ -31,6 +38,11 @@ const OP_CLOSE_BLOCK = 0x6002;
 const OP_IF = 0x6008;
 const OP_ELSE = 0x600c;
 const OP_WHILE = 0x6009;
+const OP_SWITCH = 0x600b;
+const OP_CASE = 0x600d;
+const OP_BREAK = 0x600e;
+const OP_RETURN = 0x6010;
+const OP_DEFAULT = 0x6011;
 const OP_CREATE_VARIABLE = 0x7001;
 const OP_PRINT = 0x3070;
 const OP_SHOW_MESSAGE_BOX = 0x301d;
@@ -98,6 +110,8 @@ class Emitter {
   private functionMap = new Map<string, number>();
   private customFuncNextId = 0x2000;
 
+  private breakTargetStack: number[] = [];
+
   constructor(options: CompileASTOptions, registry: InstructionRegistry) {
     this.opts = options;
     this.registry = registry;
@@ -159,6 +173,8 @@ class Emitter {
   }
 
   public run(program: ProgramNode): CompileASTResult {
+    validateProgram(program);
+
     // First, all the functions declared in the global scope are registered.
     this.registerFunctions(program.body);
 
@@ -224,7 +240,7 @@ class Emitter {
     }
   }
 
-  private emitStatement(stmt: StatementNode): void {
+private emitStatement(stmt: StatementNode): void {
     switch (stmt.kind) {
       case 'FunctionDeclaration':
         this.emitFunctionDeclaration(stmt);
@@ -234,6 +250,15 @@ class Emitter {
         break;
       case 'WhileStatement':
         this.emitWhileStatement(stmt);
+        break;
+      case 'SwitchStatement':
+        this.emitSwitchStatement(stmt);
+        break;
+      case 'BreakStatement':
+        this.emitBreakStatement(stmt);
+        break;
+      case 'ReturnStatement':
+        this.emitReturnStatement(stmt);
         break;
       case 'VariableDeclaration':
         this.emitVariableDeclaration(stmt);
@@ -327,7 +352,12 @@ class Emitter {
   private emitWhileStatement(node: WhileStatementNode): void {
     const condDesc = this.slotToDescriptor(this.emitArgSlot(node.condition));
     this.pushInstruction(OP_WHILE, [condDesc], 0);
-    this.emitBlock(node.body);
+
+    // The while body's own block ordinal is what `break` should reference —
+    // capture it before emitBlock() increments blockOrdinal, so it matches
+    // the ordinal that OpenBlock/CloseBlock will use for this block.
+    const breakTarget = this.blockOrdinal;
+    this.emitBlock(node.body, breakTarget);
   }
 
   private emitVariableDeclaration(node: VariableDeclarationNode): void {
@@ -398,13 +428,17 @@ class Emitter {
     this.pushInstruction(stmt.opcode, argDescriptors, 0);
   }
 
-  /**
+/**
    * OpenBlock is emitted with args[1] = 0 as a placeholder until CloseBlock exists.
    * After CloseBlock is pushed, args[1] is patched to the CloseBlock instruction id
    * (same convention as {@link ASTBuilder.consumeBlock}: cross-references use instruction ids).
    * CloseBlock args[0] stores the paired OpenBlock instruction id.
+   *
+   * `breakTarget`, when provided, is pushed onto breakTargetStack for the
+   * duration of this block's body — this is how `break` inside a while body
+   * knows which block ordinal to reference (see emitWhileStatement).
    */
-  private emitBlock(block: BlockStatementNode): void {
+  private emitBlock(block: BlockStatementNode, breakTarget?: number): void {
     const ord = this.blockOrdinal++;
     const openIndex = this.instructions.length;
     this.pushInstruction(OP_OPEN_BLOCK, [
@@ -414,8 +448,16 @@ class Emitter {
 
     const openInstId = this.instructions[openIndex]!.id;
 
+    if (breakTarget !== undefined) {
+      this.breakTargetStack.push(breakTarget);
+    }
+
     for (const st of block.body) {
       this.emitStatement(st);
+    }
+
+    if (breakTarget !== undefined) {
+      this.breakTargetStack.pop();
     }
 
     const closeId = this.pushInstruction(OP_CLOSE_BLOCK, [
@@ -523,6 +565,111 @@ class Emitter {
       default:
         throw new Error(`Unsupported expression kind`);
     }
+  }
+
+/**
+   * switch (<discriminant>) { case ...: ... default: ... }
+   *
+   * Binary layout (per observed bytecode):
+   *   SWITCH <discriminant>
+   *   [ OpenBlock  CASE/DEFAULT  ...body...  CloseBlock ]  x N clauses
+   *
+   * The switch itself never emits an OpenBlock/CloseBlock pair — each clause
+   * owns its own block (see emitSwitchCase).
+   */
+  private emitSwitchStatement(node: SwitchStatementNode): void {
+    const instIndex = this.reserveInstruction();
+
+    // Discriminant reuses the same expression pipeline as if/while conditions.
+    const discDesc = this.slotToDescriptor(this.emitArgSlot(node.discriminant));
+
+    this.finalizeInstruction(instIndex, OP_SWITCH, [discDesc], 0);
+
+    for (const clause of node.cases) {
+      this.emitSwitchCase(clause);
+    }
+  }
+
+  /**
+   * Emits one `case <value>:` or `default:` clause.
+   *
+   * Per the observed bytecode, the CASE/DEFAULT marker's first argument is
+   * NOT the OpenBlock's own ordinal — it is the block ordinal counter value
+   * one level *deeper* (i.e. `this.blockOrdinal` right after the OpenBlock's
+   * post-increment). `break` inside this clause references that same value.
+   */
+  private emitSwitchCase(clause: SwitchCaseNode): void {
+    const ord = this.blockOrdinal++;
+    const openIndex = this.instructions.length;
+    this.pushInstruction(OP_OPEN_BLOCK, [
+      { type: ArgType.Int, value: ord >>> 0 },
+      { type: ArgType.Int, value: 0 },
+    ], 0);
+    const openInstId = this.instructions[openIndex]!.id;
+
+    // caseBlockOrd == ord + 1, matches the sample bytecode (OpenBlock ord=2,
+    // CASE arg[0]=3) without needing a second counter.
+    const caseBlockOrd = this.blockOrdinal;
+
+    if (clause.test !== null) {
+      const valueDesc = this.constantToDescriptor(clause.test);
+      this.pushInstruction(OP_CASE, [
+        { type: ArgType.Int, value: caseBlockOrd >>> 0 },
+        valueDesc,
+      ], 0);
+    } else {
+      // DEFAULT — same shape as CASE, no comparison value.
+      this.pushInstruction(OP_DEFAULT, [
+        { type: ArgType.Int, value: caseBlockOrd >>> 0 },
+      ], 0);
+    }
+
+    this.breakTargetStack .push(caseBlockOrd);
+    for (const st of clause.consequent.body) {
+      this.emitStatement(st);
+    }
+    this.breakTargetStack .pop();
+
+    const closeId = this.pushInstruction(OP_CLOSE_BLOCK, [
+      { type: ArgType.Int, value: ord >>> 0 },
+      { type: ArgType.Int, value: openInstId >>> 0 },
+    ], 0);
+
+    this.patchInstructionArgs(openIndex, [ord >>> 0, closeId >>> 0]);
+
+    this.blockOrdinal--;
+  }
+
+  /** Converts a case's constant test value (Literal or StringRef) to an arg descriptor. */
+  private constantToDescriptor(node: LiteralNode | StringRefNode): { type: ArgType; value: number } {
+    if (node.kind === 'Literal') {
+      return this.slotToDescriptor({ kind: 'literal', value: node.value, half: node.isHalfFloat });
+    }
+    return this.slotToDescriptor({ kind: 'string', text: node.display ?? node.text ?? '' });
+  }
+
+  private emitBreakStatement(_node: BreakStatementNode): void {
+    if (this.breakTargetStack.length === 0) {
+      throw new Error('astCompiler: "break" used outside of a switch/case or while loop context.');
+    }
+    const target = this.breakTargetStack[this.breakTargetStack.length - 1];
+    this.pushInstruction(OP_BREAK, [{ type: ArgType.Int, value: target >>> 0 }], 0);
+  }
+
+  /**
+   * return; or return <expr>;
+   * Zero arguments for a bare return, one argument otherwise (reuses the
+   * general expression pipeline — no type restriction, unlike CASE values).
+   */
+  private emitReturnStatement(node: ReturnStatementNode): void {
+    if (node.argument === null) {
+      this.pushInstruction(OP_RETURN, [], 0);
+      return;
+    }
+
+    const instIndex = this.reserveInstruction();
+    const argDesc = this.slotToDescriptor(this.emitArgSlot(node.argument));
+    this.finalizeInstruction(instIndex, OP_RETURN, [argDesc], 0);
   }
 
   private finish(version: number, magic?: string): CompileASTResult {
